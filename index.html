@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sudoku</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0e0e10;
+      --surface:   #18181b;
+      --border:    #2a2a30;
+      --border-bold: #4a4a55;
+      --text:      #e4e4e7;
+      --muted:     #52525b;
+      --accent:    #a78bfa;
+      --accent-dim:#6d28d9;
+      --error:     #f87171;
+      --success:   #34d399;
+      --cell-size: clamp(38px, 7vw, 54px);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 24px;
+    }
+
+    h1 {
+      font-family: 'DM Mono', monospace;
+      font-weight: 300;
+      font-size: 1.1rem;
+      letter-spacing: 0.35em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(9, var(--cell-size));
+      grid-template-rows:    repeat(9, var(--cell-size));
+      border: 2px solid var(--border-bold);
+      background: var(--border-bold);
+      gap: 1px;
+    }
+
+    .cell {
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .cell[id$="2"], .cell[id$="5"] { border-right: 2px solid var(--border-bold); }
+    /* bottom border of rows 2, 5 */
+    .cell[id^="2"], .cell[id^="5"] { border-bottom: 2px solid var(--border-bold); }
+
+    .cell.editValue  { background: var(--surface); }
+    .cell.staticValue { background: #141417; }
+
+    .cell.error {
+      background: rgba(248,113,113,0.12) !important;
+    }
+
+    .cell input {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      text-align: center;
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 400;
+      color: var(--accent);
+      caret-color: var(--accent);
+    }
+
+    .cell input:focus {
+      background: rgba(167,139,250,0.07);
+    }
+
+    .cell span {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(16px, 3vw, 22px);
+      font-weight: 500;
+      color: var(--text);
+      user-select: none;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    select, button {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      border: 1px solid var(--border-bold);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    select { color: var(--muted); }
+
+    button:hover {
+      background: var(--border);
+      border-color: var(--muted);
+    }
+
+    button#solveButton {
+      border-color: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    button#solveButton:hover {
+      background: rgba(109,40,217,0.2);
+    }
+
+    .status {
+      min-height: 24px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-align: center;
+    }
+
+    #noErrors    { color: var(--success); display: none; }
+    #errorsFound { color: var(--error);   display: none; }
+
+    .timer {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .timer span { user-select: none; }
+
+    #youWon {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #youWon.show, #youWon[style*="block"] { display: flex !important; }
+
+    .win-box {
+      background: var(--surface);
+      border: 1px solid var(--border-bold);
+      border-radius: 8px;
+      padding: 36px 48px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .win-box p {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.4rem;
+      letter-spacing: 0.2em;
+      color: var(--success);
+    }
+
+    .win-box .sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    .win-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>Sudoku</h1>
+
+  <div id="board">
+    <div id="00" class="cell"></div><div id="01" class="cell"></div><div id="02" class="cell"></div>
+    <div id="03" class="cell"></div><div id="04" class="cell"></div><div id="05" class="cell"></div>
+    <div id="06" class="cell"></div><div id="07" class="cell"></div><div id="08" class="cell"></div>
+
+    <div id="10" class="cell"></div><div id="11" class="cell"></div><div id="12" class="cell"></div>
+    <div id="13" class="cell"></div><div id="14" class="cell"></div><div id="15" class="cell"></div>
+    <div id="16" class="cell"></div><div id="17" class="cell"></div><div id="18" class="cell"></div>
+
+    <div id="20" class="cell"></div><div id="21" class="cell"></div><div id="22" class="cell"></div>
+    <div id="23" class="cell"></div><div id="24" class="cell"></div><div id="25" class="cell"></div>
+    <div id="26" class="cell"></div><div id="27" class="cell"></div><div id="28" class="cell"></div>
+
+    <div id="30" class="cell"></div><div id="31" class="cell"></div><div id="32" class="cell"></div>
+    <div id="33" class="cell"></div><div id="34" class="cell"></div><div id="35" class="cell"></div>
+    <div id="36" class="cell"></div><div id="37" class="cell"></div><div id="38" class="cell"></div>
+
+    <div id="40" class="cell"></div><div id="41" class="cell"></div><div id="42" class="cell"></div>
+    <div id="43" class="cell"></div><div id="44" class="cell"></div><div id="45" class="cell"></div>
+    <div id="46" class="cell"></div><div id="47" class="cell"></div><div id="48" class="cell"></div>
+
+    <div id="50" class="cell"></div><div id="51" class="cell"></div><div id="52" class="cell"></div>
+    <div id="53" class="cell"></div><div id="54" class="cell"></div><div id="55" class="cell"></div>
+    <div id="56" class="cell"></div><div id="57" class="cell"></div><div id="58" class="cell"></div>
+
+    <div id="60" class="cell"></div><div id="61" class="cell"></div><div id="62" class="cell"></div>
+    <div id="63" class="cell"></div><div id="64" class="cell"></div><div id="65" class="cell"></div>
+    <div id="66" class="cell"></div><div id="67" class="cell"></div><div id="68" class="cell"></div>
+
+    <div id="70" class="cell"></div><div id="71" class="cell"></div><div id="72" class="cell"></div>
+    <div id="73" class="cell"></div><div id="74" class="cell"></div><div id="75" class="cell"></div>
+    <div id="76" class="cell"></div><div id="77" class="cell"></div><div id="78" class="cell"></div>
+
+    <div id="80" class="cell"></div><div id="81" class="cell"></div><div id="82" class="cell"></div>
+    <div id="83" class="cell"></div><div id="84" class="cell"></div><div id="85" class="cell"></div>
+    <div id="86" class="cell"></div><div id="87" class="cell"></div><div id="88" class="cell"></div>
+  </div>
+
+  <div class="status">
+    <span id="noErrors"></span>
+    <span id="errorsFound">errors found</span>
+  </div>
+
+  <div class="timer">
+    <span id="currentTime">00:00</span>
+    <span id="lastTime">last: --:--</span>
+    <span id="bestTime">best: --:--</span>
+  </div>
+
+  <div class="controls">
+    <select id="difficulty">
+      <option value="1">easy</option>
+      <option value="2">medium</option>
+      <option value="3">hard</option>
+      <option value="4">expert</option>
+      <option value="5">evil</option>
+    </select>
+    <button id="newGameButton">new game</button>
+    <button id="checkButton">check</button>
+    <button id="solveButton">solve</button>
+  </div>
+
+  <div id="youWon">
+    <div class="win-box">
+      <p>YOU WON</p>
+      <span class="sub">puzzle complete</span>
+      <div class="win-actions">
+        <button id="winNewGameButton">new game</button>
+        <button id="winCloseButton">close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
